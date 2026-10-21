@@ -9,7 +9,7 @@ from beets import ui
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from beets.library import Library
+    from beets.library import Album, Library
 
 
 class ListCLIOpts(Protocol):
@@ -27,7 +27,14 @@ def list_items(
         for _album in lib.albums(query, limit=opts.limit):
             ui.print_(format(_album, fmt))
     else:
+        # Formatting an item loads its album, so share one Album object between
+        # the items of an album instead of querying the database for each.
+        albums: dict[int | None, Album | None] = {}
         for item in lib.items(query, limit=opts.limit):
+            if item.album_id in albums:
+                item._cached_album = albums[item.album_id]
+            else:
+                albums[item.album_id] = item._cached_album
             ui.print_(format(item, fmt))
 
 

@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 
 from beets.test import _common
 from beets.test.helper import BeetsTestCase, IOMixin
@@ -88,3 +89,24 @@ class ListTest(IOMixin, BeetsTestCase):
 
         stdout = self.run_with_output(*args, "flex-").strip()
         assert stdout == os.fsdecode(self.another_item.path)
+
+    def test_list_loads_each_album_once(self):
+        items = [
+            _common.item(
+                path=os.fsencode(self.lib_path / f"multi/{n}"),
+                album="multi",
+                title=f"multi title {n}",
+            )
+            for n in range(3)
+        ]
+        for item in items:
+            self.lib.add(item)
+        self.lib.add_album(items)
+
+        with patch.object(
+            self.lib, "get_album", wraps=self.lib.get_album
+        ) as get_album:
+            stdout = self.run_with_output("list", "album:multi", "-f", "$title")
+
+        assert stdout.count("multi title") == 3
+        assert get_album.call_count == 1
